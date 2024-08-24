@@ -34,5 +34,5 @@ python examples/gemma/language_model_filter.py \
   --output-path $OUTPUT_PATH \
   --vocab_file ${VOCAB_FILE_PATH} \
   --engine_dir ${ENGINE_PATH} \
-  --json-conversation-key "conversations" \
+  --json-conversation-key "messages" \
   --verbose

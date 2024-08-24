@@ -61,6 +61,13 @@ def extract_scores(text: str) -> dict[str, float]:
     return score_dict
 
 
+def write_results(data, output_path, mode='w'):
+    with open(output_path, mode, encoding='utf-8') as file:
+        for entry in data:
+            json.dump(entry, file, ensure_ascii=False)
+            file.write('\n')
+
+
 def main(args) -> None:
     if args.tokenizer_dir is None:
         args.tokenizer_dir = args.hf_model_dir
@@ -98,7 +105,22 @@ def main(args) -> None:
 
     # Load and process the JSONL file
     data = load_jsonl(args.jsonl_path)
-    for item in data:
+
+    # Determine the starting index
+    start_index = 0
+    if args.resume and os.path.exists(args.output_path):
+        with open(args.output_path, 'r', encoding='utf-8') as file:
+            for line in file:
+                last_processed = json.loads(line)
+                start_index = last_processed.get('index', 0) + 1
+        print(f"Resuming from index {start_index}")
+    else:
+        # Clear the output file if not resuming
+        with open(args.output_path, 'w', encoding='utf-8') as file:
+            file.write('')
+
+    processed_data = []
+    for idx, item in enumerate(data[start_index:], start=start_index + 1):
         start = time.perf_counter()
         conversations: list[dict[str, str]] = item[args.json_conversation_key]
         text = ""
@@ -118,8 +140,12 @@ def main(args) -> None:
             return_tensors="pt",
             add_special_tokens=False
         ).squeeze(0)  # type: ignore
-        batch_input_ids = [inputs]
 
+        if inputs.shape[0] > 3000:
+            print(f"input length is too long: {inputs.shape[0]}")
+            continue
+
+        batch_input_ids = [inputs]
         output_len = 4096 - inputs.shape[0]
         top_k = 1
         top_p = 0.0
@@ -173,14 +199,17 @@ def main(args) -> None:
             print(scores, flush=True)
         item["scores"] = scores
         item["generated_text"] = output_text
-        print(f"Processed in {time.perf_counter() - start:.2f}s", flush=True)
+        item["index"] = idx - 1  # Adjust index to match the original data
+        processed_data.append(item)
+        print(f"Processed item {idx} in {time.perf_counter() - start:.2f}s", flush=True)
 
-    # Save the filtered entries
-    with open(args.output_path, 'w', encoding='utf-8') as file:
-        for entry in data:
-            json.dump(entry, file, ensure_ascii=False)
-            file.write('\n')
+        if len(processed_data) == 10:
+            write_results(processed_data, args.output_path, mode='a')
+            processed_data = []
 
+    # Write any remaining processed data
+    if processed_data:
+        write_results(processed_data, args.output_path, mode='a')
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
@@ -192,6 +221,7 @@ if __name__ == "__main__":
     )
     parser.add_argument('--output-path', help='Path to save the output JSONL file with Japanese entries')
     parser.add_argument('--verbose', action='store_true', help='Print verbose output')
+    parser.add_argument('--resume', action='store_true', help='Resume from the last processed index')
     parser = add_common_args(parser)
 
     args = parser.parse_args()
