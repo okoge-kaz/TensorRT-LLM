@@ -24,8 +24,10 @@ UNIFIED_CKPT_PATH=/gs/bs/tga-NII-LLM/checkpoints/tensorRT/unified/gemma-2-$varia
 ENGINE_PATH=/gs/bs/tga-NII-LLM/checkpoints/tensorRT/engine/gemma2/$variant/bf16/1-gpu/
 VOCAB_FILE_PATH=/gs/bs/tga-NII-LLM/hf-checkpoints/gemma-2-$variant-it/tokenizer.model
 
-DATASET_PATH="/gs/bs/tga-NII-LLM/datasets/raw/instruct/MAGPIE/Synthetic-JP-Conversations-Magpie-Nemotron-4-10k/filtered.jsonl"
-OUTPUT_PATH="/gs/bs/tga-NII-LLM/datasets/raw/instruct/MAGPIE/Synthetic-JP-Conversations-Magpie-Nemotron-4-10k/lm_filtered.jsonl"
+DATASET_DIR=/gs/bs/tga-NII-LLM/datasets/raw/instruct/general/oasst2-33k-ja
+
+DATASET_PATH=${DATASET_DIR}/filtered_split_filtered_4.jsonl
+OUTPUT_PATH=${DATASET_DIR}/lm_filtered_split_4.jsonl
 
 echo "DATASET_PATH: $DATASET_PATH"
 
@@ -34,5 +36,5 @@ python examples/gemma/language_model_filter.py \
   --output-path $OUTPUT_PATH \
   --vocab_file ${VOCAB_FILE_PATH} \
   --engine_dir ${ENGINE_PATH} \
-  --json-conversation-key "messages" \
+  --json-conversation-key "conversations" \
   --verbose
