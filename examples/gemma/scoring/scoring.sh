@@ -31,7 +31,7 @@ OUTPUT_PATH=${DATASET_DIR}/lm_filtered_split_4.jsonl
 
 echo "DATASET_PATH: $DATASET_PATH"
 
-python examples/gemma/language_model_filter.py \
+python examples/gemma/scoring/language_model_scoring.py \
   --jsonl-path $DATASET_PATH \
   --output-path $OUTPUT_PATH \
   --vocab_file ${VOCAB_FILE_PATH} \
