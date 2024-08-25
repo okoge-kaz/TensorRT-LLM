@@ -26,8 +26,8 @@ VOCAB_FILE_PATH=/gs/bs/tga-NII-LLM/hf-checkpoints/gemma-2-$variant-it/tokenizer.
 
 DATASET_DIR=/gs/bs/tga-NII-LLM/datasets/raw/instruct/OpenOrca
 
-DATASET_PATH=${DATASET_DIR}/split_1M_1M-GPT4-Augmented_18.jsonl
-OUTPUT_PATH=${DATASET_DIR}/lm_translated_1M-GPT4-Augmented_18.jsonl
+DATASET_PATH=${DATASET_DIR}/split_1M_1M-GPT4-Augmented_60.jsonl
+OUTPUT_PATH=${DATASET_DIR}/lm_translated_1M-GPT4-Augmented_60.jsonl
 
 echo "DATASET_PATH: $DATASET_PATH"
 
