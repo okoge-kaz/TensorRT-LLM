@@ -41,7 +41,32 @@ def load_jsonl(file_path):
         return [json.loads(line) for line in file]
 
 
-JUDGE_PROMPT = "[Instruction]\n：あなたは、プロの翻訳家です。以下の英語の文章を日本語に翻訳してください。直訳はせず、日本語として適切な表現を利用して翻訳してください。翻訳した訳文だけを表示するべきであり、余計な表現は出力しないでください。では、次の英語の文章を日本語に翻訳してください。\n[English text]:"
+JUDGE_PROMPT = f"""
+[指示]\n公平な判断者として行動し、以下に表示される翻訳元の文章と翻訳後の文章を参照し翻訳品質を評価してください。あなたの評価は、翻訳の完全性、正確性、翻訳不備の有無、詳細度などの要素を考慮してそれぞれの点数と総合評価を示してください。翻訳元の文章から改変されている、または、異なる内容に翻訳されている場合は大幅に減点してください。翻訳は1対1に対応するべきであり、翻訳後の文章が翻訳元の文の応答になっている場合は低い点数(5点未満)を与えてください。背景情報が欠落している文章についても同様です。評価は短い説明から始めてください。できるだけ客観的であること。説明を提供した後、**総合評価: 5/10** のようなフォーマットに厳密に従って1から10までのスケールで翻訳品質を評価する必要があります：\n\n[翻訳元の文章]\n{{text}}\n\n[翻訳後の文章]\n{{translation}}\n\n
+"""
+
+LABEL_MAPPING = {
+    "完全性": "completeness",
+    "正確性": "accuracy",
+    "翻訳不備の有無": "translation_errors",
+    "詳細度": "detail",
+    "総合評価": "overall"
+}
+
+
+def extract_scores(text: str) -> dict[str, float]:
+    line_pattern = re.compile(r"(完全性|正確性|翻訳不備の有無|詳細度|総合評価).*?(\d+\.?\d*)/10")
+
+    # 評価項目を抽出
+    matches = line_pattern.findall(text)
+
+    # スコアを辞書形式で保存
+    score_dict = {}
+    for match in matches:
+        label, score = match
+        score_dict[LABEL_MAPPING[label]] = float(score) if '.' in score else int(score)
+
+    return score_dict
 
 
 def write_results(data, output_path, mode='w'):
@@ -55,12 +80,12 @@ def process_batch(model, tokenizer, batch, args):
     input_lengths = []
 
     for item in batch:
-        judged_text: str = JUDGE_PROMPT + item["question"]
+        judged_text: str = JUDGE_PROMPT.format(text=item["question"], translation=item["processed_translated_instruction"])
         input_text: str = tokenizer.apply_chat_template(
             [{"role": "user", "content": judged_text}],
             tokenize=False,
             add_generation_prompt=True,
-        ) + "[Japanese text]:"
+        ) + "[評価]:\n"
 
         inputs = tokenizer.encode(
             input_text,
@@ -103,12 +128,12 @@ def process_batch(model, tokenizer, batch, args):
 
     if args.verbose and runtime_rank == 0:
             print(output_text, flush=True)
-    results.append({
-        "id": item["id"],
-        "system_prompt": item["system_prompt"],
-        "translated_text": output_text,
-        "original_question": item["question"],
-    })
+    scores = extract_scores(output_text)
+    if args.verbose and runtime_rank == 0:
+        print(scores, flush=True)
+    item["scores"] = scores
+
+    results.append(item)
 
     return results
 
@@ -186,6 +211,6 @@ if __name__ == "__main__":
     parser.add_argument('--verbose', action='store_true', help='Print verbose output')
     parser.add_argument('--resume', action='store_true', help='Resume from the last processed index')
     parser = add_common_args(parser)
-    parser.add_argument('--batch_size', type=int, default=8, help='Batch size for inference')
+    parser.add_argument('--batch_size', type=int, default=1, help='Batch size for inference')
     args = parser.parse_args()
     main(args)

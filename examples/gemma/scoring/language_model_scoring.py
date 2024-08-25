@@ -6,7 +6,15 @@ import torch
 import argparse
 
 import sys
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.append(
+    os.path.dirname(
+        os.path.dirname(
+            os.path.dirname(
+                os.path.abspath(__file__)
+            )
+        )
+    )
+)
 
 from utils import add_common_args, load_tokenizer, read_model_name
 

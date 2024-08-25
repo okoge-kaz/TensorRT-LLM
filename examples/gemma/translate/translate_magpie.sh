@@ -2,8 +2,8 @@
 #$ -cwd
 #$ -l node_q=1
 #$ -l h_rt=72:00:00
-#$ -o outputs/inference/$JOB_ID.log
-#$ -e outputs/inference/$JOB_ID.log
+#$ -o outputs/translate/magpie/$JOB_ID.log
+#$ -e outputs/translate/magpie/$JOB_ID.log
 #$ -p -5
 
 # Load modules
