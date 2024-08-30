@@ -1,7 +1,7 @@
 #!/bin/sh
 
-START_INDEX=2
-END_INDEX=60
+START_INDEX=61
+END_INDEX=70
 
 DATASET_DIR=/gs/bs/tga-NII-LLM/datasets/raw/instruct/OpenOrca/
 

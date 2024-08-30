@@ -74,8 +74,12 @@ def main():
     with open(args.input, 'r', encoding='utf-8') as infile, open(args.output, 'w', encoding='utf-8') as outfile:
         for line in tqdm.tqdm(infile):
             data = json.loads(line)
-            if 'translated_text' in data:
-                data['processed_translated_instruction'] = process_text(data['translated_text'])
+            if 'translated_response' in data:
+                data['processed_translated_response'] = process_text(data['translated_response'])
+            if 'translated_instruction' in data:
+                data['processed_translated_instruction'] = process_text(data['translated_instruction'])
+
+            data.pop("embedding")
             json.dump(data, outfile, ensure_ascii=False)
             outfile.write('\n')
 
