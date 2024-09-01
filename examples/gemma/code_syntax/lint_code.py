@@ -3,8 +3,9 @@ import argparse
 import subprocess
 import tempfile
 
-def lint_code(language, code) -> bool | None:
-    """Lint code based on its language and return True if there are errors, False otherwise."""
+
+def lint_code(language, code):
+    """Lint code based on its language and return (has_errors, error_message)."""
     if language == 'Python':
         return lint_python(code)
     elif language == 'JavaScript':
@@ -14,18 +15,17 @@ def lint_code(language, code) -> bool | None:
     elif language == 'C++':
         return lint_cpp(code)
     elif language == 'C#':
-        return None
-        return lint_csharp(code)
+        return None, None  # Uncomment and implement if needed
     elif language == 'Ruby':
         return lint_ruby(code)
     elif language == 'Java':
-        return None
-        return lint_java(code)
+        return None, None  # Uncomment and implement if needed
     elif language == 'PHP':
         return lint_php(code)
     else:
         print(f"Unsupported language: {language}")
-        return None
+        return None, None
+
 
 def lint_python(code):
     """Lint Python code using pylint."""
@@ -34,7 +34,8 @@ def lint_python(code):
         temp_file_path = temp_file.name
 
     result = subprocess.run(['pylint', temp_file_path], capture_output=True, text=True)
-    return result.returncode != 0  # Return True if there are errors
+    return result.returncode != 0, result.stdout + result.stderr
+
 
 def lint_javascript(code):
     """Lint JavaScript code using eslint."""
@@ -43,7 +44,8 @@ def lint_javascript(code):
         temp_file_path = temp_file.name
 
     result = subprocess.run(['./node_modules/.bin/eslint', temp_file_path], capture_output=True, text=True)
-    return result.returncode != 0  # Return True if there are errors
+    return result.returncode != 0, result.stdout + result.stderr
+
 
 def lint_typescript(code):
     """Lint TypeScript code using eslint."""
@@ -52,7 +54,8 @@ def lint_typescript(code):
         temp_file_path = temp_file.name
 
     result = subprocess.run(['./node_modules/.bin/eslint', temp_file_path], capture_output=True, text=True)
-    return result.returncode != 0  # Return True if there are errors
+    return result.returncode != 0, result.stdout + result.stderr
+
 
 def lint_cpp(code):
     """Lint C++ code using cpplint."""
@@ -61,16 +64,8 @@ def lint_cpp(code):
         temp_file_path = temp_file.name
 
     result = subprocess.run(['cpplint', temp_file_path], capture_output=True, text=True)
-    return result.returncode != 0  # Return True if there are errors
+    return result.returncode != 0, result.stdout + result.stderr
 
-def lint_csharp(code):
-    """Lint C# code using dotnet format."""
-    with tempfile.NamedTemporaryFile(suffix='.cs', delete=False, mode='w') as temp_file:
-        temp_file.write(code)
-        temp_file_path = temp_file.name
-
-    result = subprocess.run(['dotnet', 'format', temp_file_path, '--verify-no-changes'], capture_output=True, text=True)
-    return result.returncode != 0  # Return True if there are errors
 
 def lint_ruby(code):
     """Lint Ruby code using rubocop."""
@@ -79,16 +74,8 @@ def lint_ruby(code):
         temp_file_path = temp_file.name
 
     result = subprocess.run(['rubocop', temp_file_path], capture_output=True, text=True)
-    return result.returncode != 0  # Return True if there are errors
+    return result.returncode != 0, result.stdout + result.stderr
 
-def lint_java(code):
-    """Lint Java code using checkstyle."""
-    with tempfile.NamedTemporaryFile(suffix='.java', delete=False, mode='w') as temp_file:
-        temp_file.write(code)
-        temp_file_path = temp_file.name
-
-    result = subprocess.run(['checkstyle', '-c', '/google_checks.xml', temp_file_path], capture_output=True, text=True)
-    return result.returncode != 0  # Return True if there are errors
 
 def lint_php(code):
     """Lint PHP code using php -l."""
@@ -97,10 +84,11 @@ def lint_php(code):
         temp_file_path = temp_file.name
 
     result = subprocess.run(['php', '-l', temp_file_path], capture_output=True, text=True)
-    return result.returncode != 0  # Return True if there are errors
+    return result.returncode != 0, result.stdout + result.stderr
+
 
 def process_jsonl(file_path, output_path):
-    """Process JSONL file, lint code and add lint_error key."""
+    """Process JSONL file, lint code and add lint_error and lint_message keys."""
     output_data = []
 
     with open(file_path, 'r', encoding='utf-8') as f:
@@ -110,10 +98,12 @@ def process_jsonl(file_path, output_path):
             code = data.get('text')
 
             if language and code:
-                lint_error = lint_code(language, code)
+                lint_error, lint_message = lint_code(language, code)
                 data['lint_error'] = lint_error
+                data['lint_message'] = lint_message
             else:
                 data['lint_error'] = None
+                data['lint_message'] = None
 
             output_data.append(data)
 
