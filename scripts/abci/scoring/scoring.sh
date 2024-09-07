@@ -43,9 +43,6 @@ done <"$SGE_JOB_HOSTLIST" >"$HOSTFILE_NAME"
 variant=27b
 
 CKPT_PATH=/groups/gag51395/hf-checkpoints/gemma-2-$variant-it/
-UNIFIED_CKPT_PATH=/bb/llm/gaf51275/checkpoints/tensorRT/unified/gemma-2-$variant-it/bf16/tp8/
-ENGINE_PATH=/bb/llm/gaf51275/checkpoints/tensorRT/engine/gemma2/$variant/bf16/8-gpu/
-VOCAB_FILE_PATH=/groups/gag51395/hf-checkpoints/gemma-2-$variant-it/tokenizer.model
 
 DATASET_DIR=/bb/llm/gaf51275/datasets/raw/instruct/general/oasst2-top1-en-chat-sft/data
 
@@ -54,17 +51,9 @@ OUTPUT_PATH=${DATASET_DIR}/lm_scored.jsonl
 
 echo "DATASET_PATH: $DATASET_PATH"
 
-mpirun -np $NUM_GPUS \
-  --npernode $NUM_GPU_PER_NODE \
-  -hostfile $HOSTFILE_NAME \
-  -x MASTER_ADDR=$MASTER_ADDR \
-  -x MASTER_PORT=$MASTER_PORT \
-  -x LD_LIBRARY_PATH \
-  -x PATH \
-  python examples/gemma/scoring/language_model_scoring.py \
-    --jsonl-path $DATASET_PATH \
-    --output-path $OUTPUT_PATH \
-    --vocab_file ${VOCAB_FILE_PATH} \
-    --engine_dir ${ENGINE_PATH} \
-    --json-conversation-key "conversations" \
-    --verbose
+python scripts/common/scoring/language_model_scoring_hf.py \
+  --jsonl-path $DATASET_PATH \
+  --output-path $OUTPUT_PATH \
+  --model-path $CKPT_PATH \
+  --json-conversation-key "conversations" \
+  --verbose
