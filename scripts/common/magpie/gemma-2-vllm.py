@@ -41,11 +41,75 @@ def extract_scores(text: str) -> dict[str, float]:
         score_dict[LABEL_MAPPING[label]] = float(score) if "." in score else int(score)
     return score_dict
 
+
 def write_results(data, output_path, mode="w"):
     with open(output_path, mode, encoding="utf-8") as file:
         for entry in data:
             json.dump(entry, file, ensure_ascii=False)
             file.write("\n")
+
+
+def process_batch(batch, llm, tokenizer, sampling_params):
+    results = []
+    instruction_texts = [INSTRUCTION_PROMPT.format(category=args.category) for _ in range(len(batch))]
+
+    # バッチで指示を生成
+    instructions = llm.generate(instruction_texts, sampling_params)
+
+    for instruction in instructions:
+        instruction_text = instruction.outputs[0].text
+
+        # アシスタントの応答を生成
+        assistant_output = llm.generate([instruction_text], sampling_params)
+        assistant_text = assistant_output[0].outputs[0].text
+
+        # 判定を生成
+        judge_text = JUDGE_PROMPT + "user:" + instruction_text + "\n\n" + "assistant:" + assistant_text
+        judge_input = tokenizer.apply_chat_template(
+            conversation=[{"role": "user", "content": judge_text}],
+            tokenize=False,
+            add_generation_prompt=True,
+        )
+        judge_input += "[評価]\n"
+        judged_output = llm.generate([judge_input], sampling_params)
+        judged_text = judged_output[0].outputs[0].text
+
+        scores = extract_scores(judged_text)
+
+        results.append(
+            {
+                "scores": scores,
+                "scoring_model": args.model_path,
+                "input": {"role": "user", "content": instruction_text},
+                "output": {"role": "assistant", "content": assistant_text},
+                "judge": judge_text,
+                "text": f"user: {instruction_text}\n\nassistant: {assistant_text}",
+            }
+        )
+
+    return results
+
+
+def format_time(seconds):
+    """
+    秒を日、時間、分、秒に変換します。
+    """
+    days, seconds = divmod(int(seconds), 86400)
+    hours, seconds = divmod(seconds, 3600)
+    minutes, seconds = divmod(seconds, 60)
+
+    time_parts = []
+    if days > 0:
+        time_parts.append(f"{days}日")
+    if hours > 0:
+        time_parts.append(f"{hours}時間")
+    if minutes > 0:
+        time_parts.append(f"{minutes}分")
+    if seconds > 0 or not time_parts:
+        time_parts.append(f"{seconds}秒")
+
+    return " ".join(time_parts)
+
 
 def main(args):
     # Initialize the LLM
@@ -61,64 +125,47 @@ def main(args):
 
     random.seed(int(time.time()))
     torch.manual_seed(random.randint(1, 10000))
+    start = time.perf_counter()
+    generated_count: int = 0
 
+    batch_size = args.batch_size
     sampling_params = SamplingParams(
-        temperature=1.0,
-        top_p=0.7,
+        temperature=1.3,
+        top_p=0.85,
         max_tokens=1024,
     )
 
     data = []
-    for _ in range(args.num_samples):
-        start = time.perf_counter()
-        text = INSTRUCTION_PROMPT.format(category=args.category)
+    for i in range(0, args.num_samples, batch_size):
+        batch = range(min(batch_size, args.num_samples - i))
+        results = process_batch(batch, llm, tokenizer, sampling_params)
+        data.extend(results)
 
-        instruction = llm.generate([text], sampling_params)
-        instruction_text = instruction[0].outputs[0].text
-        print(instruction_text, flush=True)
-
-        assistant_output = llm.generate(
-            [instruction_text], sampling_params
-        )
-        assistant_text = assistant_output[0].outputs[0].text
-
-        # judge
-        judge_text = JUDGE_PROMPT + "user:" + instruction_text + "\n\n" + "assistant:" + assistant_text
-        judge_input: str = tokenizer.apply_chat_template(  # type: ignore
-            conversation=[{"role": "user", "content": judge_text}],
-            tokenize=False,
-            add_generation_prompt=True,
-        )
-        judge_input += "[評価]\n"  # type: ignore
-        judged_output = llm.generate(
-            [judge_input], sampling_params
-        )
-        judged_text = judged_output[0].outputs[0].text
-
-        scores = extract_scores(judged_text)
-
-        item = {
-            "scores": scores,
-            "scoring_model": args.model_path,
-            "input": {"role": "user", "content": instruction_text},
-            "output": {"role": "assistant", "content": assistant_text},
-            "judge": judge_text,
-            "text": "user: " + instruction_text + "\n\n" + "assistant: " + assistant_text,
-        }
-        data.append(item)
-        print(f"Processed item in {time.perf_counter() - start:.2f}s", flush=True)
-
-        if len(data) == 10:
+        if len(data) >= 40:
             write_results(data, args.output_path, mode="a")
-            processed_data = []
+            data = []
 
-    # Write any remaining processed data
-    if processed_data:
-        write_results(processed_data, args.output_path, mode="a")
+        if len(data) == 40:
+            write_results(data, args.output_path, mode="a")
+            data = []
+
+        generated_count += batch_size
+        elapsed_time = time.perf_counter() - start
+        samples_per_sec = generated_count / elapsed_time
+        expected_time_left = (args.num_samples - generated_count) / samples_per_sec
+
+        print(f"サンプル生成速度: {samples_per_sec:.2f} サンプル/秒", flush=True)
+        print(f"予想残り時間: {format_time(expected_time_left)}", flush=True)
+
+    # Write any remaining data
+    if data:
+        write_results(data, args.output_path, mode="a")
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="scoring dataset by language model")
     parser.add_argument("--model-path", type=str)
+    parser.add_argument("--batch-size", type=int, default=4)
     parser.add_argument("--num-samples", type=int, default=1000)
     parser.add_argument("--category", type=str)
     parser.add_argument("--difficulty", type=str, choices=["easy", "medium", "difficult"])

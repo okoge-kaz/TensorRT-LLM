@@ -1,6 +1,6 @@
 #!/bin/bash
 #$ -l rt_AF=1
-#$ -l h_rt=1:00:00:00
+#$ -l h_rt=7:00:00:00
 #$ -j y
 #$ -o outputs/gemma/scoring/
 #$ -cwd
@@ -44,15 +44,15 @@ variant=27b
 
 CKPT_PATH=/groups/gag51395/hf-checkpoints/gemma-2-$variant-it/
 
-DATASET_DIR=/bb/llm/gaf51275/datasets/raw/instruct/general/oasst2-top1-en-chat-sft/data
+DATASET_DIR=/bb/llm/gaf51275/datasets/raw/instruct/OpenOrca
 
-DATASET_PATH=${DATASET_DIR}/split_train-00000-of-00001_1_conversations.jsonl
-OUTPUT_PATH=${DATASET_DIR}/lm_scored_1.jsonl
+DATASET_PATH=${DATASET_DIR}/processed_openorca_output.jsonl
+OUTPUT_PATH=${DATASET_DIR}/openorca_scored_output.jsonl
 
 echo "DATASET_PATH: $DATASET_PATH"
 
 python scripts/common/scoring/language_model_scoring_vllm.py \
-  --tensor-parallel 4 \
+  --tensor-parallel 8 \
   --jsonl-path $DATASET_PATH \
   --output-path $OUTPUT_PATH \
   --model-path $CKPT_PATH \
