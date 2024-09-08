@@ -129,9 +129,13 @@ def main(args):
     generated_count: int = 0
 
     batch_size = args.batch_size
+    temperature = 1.0
+    top_p = 0.85
+    print(f"temperature={temperature}, top_p={top_p}", flush=True)
+
     sampling_params = SamplingParams(
-        temperature=1.3,
-        top_p=0.85,
+        temperature=temperature,
+        top_p=top_p,
         max_tokens=1024,
     )
 

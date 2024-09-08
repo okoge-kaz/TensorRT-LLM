@@ -47,7 +47,7 @@ CKPT_PATH=/groups/gag51395/hf-checkpoints/gemma-2-$variant-it/
 DATASET_DIR=/bb/llm/gaf51275/datasets/raw/instruct/MAGPIE/gemma2-27b-it
 mkdir -p $DATASET_DIR
 
-OUTPUT_PATH=${DATASET_DIR}/politics_1.jsonl
+OUTPUT_PATH=${DATASET_DIR}/future_trading.jsonl
 
 echo "DATASET_PATH: $DATASET_PATH"
 
@@ -55,5 +55,6 @@ python scripts/common/magpie/gemma-2-vllm.py \
   --tensor-parallel 8 \
   --output-path $OUTPUT_PATH \
   --model-path $CKPT_PATH \
-  --category "政治" \
-  --batch-size 4
+  --category "先物取引" \
+  --batch-size 8 \
+  --num-samples 1000
